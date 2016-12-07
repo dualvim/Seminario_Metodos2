@@ -1,0 +1,313 @@
+---
+title: "Identificação dos Fatores Relacionados à Exportação de Açúcar no Brasil"
+author: "Alexandre, Carina e Eduardo"
+date: "7 de dezembro de 2016"
+output:
+  pdf_document:
+    keep_tex: yes
+    latex_engine: lualatex
+  html_document:
+    fig_height: 7
+    fig_width: 8
+    number_sections: yes
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+options(digits=2)
+
+# Diretório de trabalho:
+setwd("C:/Users/Eduardo/Desktop/Mestrado_UFU/Sem2_Disc2_MetodosQuant2/Seminario/Apresentacao_20161207/")
+
+# Bibliotecas utilizadas:
+library(car)
+library(nlme)
+library(lmtest)
+library(faraway)
+```
+
+
+# 1 - Resumo:  
+O Objetivo desse breve trabalho é analisar os fatores econômicos relacionados com as exportações de açúcar no Brasil. O trabalho analisa dados econômicos, referentes aos anos de 1974 a 2010, obtidos no site do Instituto de Pesquisa Econômica Aplicada (IPEA), para analisar quais fatores influenciam ou não às exportações brasileiras de açúcar. Para isso foi estimado um modelo de regressão do tipo "Mínimos Quadrados Generalizados" (MQG) e foi constatado que as exportações de açúcar possuem uma relação positiva com a área colhida de cana de açúcar e uma relação negativa com a taxa básica de juros da Economia, a taxa Selic.  
+
+# 2 - Dados Utilizados no Trabalho e Estatísticas Descritivas: 
+No site do IPEA (www.ipeadata.gov.br) foram obtidos os seguintes dados, referentes aos anos de 1974 a 2010:  
+
+- Volume de açúcar exportado (em toneladas)  
+- Valor das exportações de açúcar (em milhares de US\$)  
+- Área colhida de cana de açúcar (em Hectares)  
+- Produção de cana de açúcar (em toneladas)  
+- Taxa Selic no ano (em % a.a.)  
+
+A partir dos valores das exportações de açúcar, foi calculado o preço médio da tonelada de açúcar no ano no mercado internacional.  
+
+Sendo assim, a variável dependente dos modelos de regressão testados neste trabalho será o volume de açúcar exportado (em toneladas) e as variáveis independentes a serem analisadas serão: 1) área colhida de cana de açúcar (em Ha), 2) A produção de cana de açúcar no ano (em ton), 3) a taxa Selic (em % a.a.) e 4) o preço médio da tonelada de açúcar no mercado internacional.  
+A seguir são apresentadas as principais estatísticas descritivas de cada variável analisada aqui:  
+
+```{r}
+dados <- read.csv2(file="dadosSeminario_FINAL.csv", stringsAsFactors = FALSE)
+dados$AreaColhidaCana <- as.numeric(dados$AreaColhidaCana)
+dados$ProdCana_ton <- as.numeric(dados$ProdCana_ton)
+
+# Vetores com as médias e desvios padrões 
+medias <- sapply(dados, mean)
+desvPad <- sapply(dados, sd)
+
+# Nomear os elementos dos vetores criados acima
+names(medias) <- names(dados)
+names(desvPad) <- names(dados)
+
+# Vetor com os coeficientes de variação:
+coefVar <- desvPad/medias * 100
+```  
+
+Variável | Média $\bar{X}$| Desvio Padrão $\sigma$| Coeficiente de Variação $\left( \frac{\sigma}{\bar{X}} \times 100 \right)$
+------------- | ------------- | ------------- | -------------
+VolExpAcucar_ton | `r medias["VolExpAcucar_ton"]` | `r desvPad["VolExpAcucar_ton"]` | `r coefVar["VolExpAcucar_ton"]`%  
+AreaColhidaCana | `r medias["AreaColhidaCana"]` | `r desvPad["AreaColhidaCana"]` | `r coefVar["AreaColhidaCana"]`%  
+ProdCana_ton | `r medias["ProdCana_ton"]` | `r desvPad["ProdCana_ton"]` | `r coefVar["ProdCana_ton"]`%  
+TaxaSELIC | `r medias["TaxaSELIC"]` | `r desvPad["TaxaSELIC"]` | `r coefVar["TaxaSELIC"]`%  
+PrecoAcucar | `r medias["PrecoAcucar"]` | `r desvPad["PrecoAcucar"]` | `r coefVar["PrecoAcucar"]`%  
+
+A tabela acima mostra que a variável com menor dispersão (isto é, apresentou o menor coeficiente de variação) foi **AreaColhidaCana** e a com maior dispersão foi TaxaSelic. O motivo para a alta dispersão observada para a variável TaxaSelic é o período de hiperinflação que culminou principalmente nos anos de 1981 a 1994.  
+
+A Seguir é apresentado um painel com 4 gráficos, apresentando a evolução das exportações de açúcar (em toneladas), a área colhida de cana de açúcar (em Ha), a taxa Selic e o preço médio da tonelada de açúcar no mercado internacional.    
+
+```{r Figura01}
+par(mfrow=c(2,2))
+
+plot(x=dados$Ano, y=dados$VolExpAcucar_ton, type="l", lwd=2,
+     main="Volume Açúcar Exportando (ton)", xlab="Ano", ylab="Toneladas")
+
+plot(x=dados$Ano, y=dados$AreaColhidaCana, type="l", lwd=2,
+     main="Área Colhida de Cana (Ha)", xlab="Ano", ylab="Hectares")
+
+plot(x=dados$Ano, y=dados$TaxaSELIC, type="l", lwd=2,
+     main="Taxa Selic", xlab="Ano", ylab="% a.a.")
+
+plot(x=dados$Ano, y=dados$PrecoAcucar, type="l", lwd=2,
+     main="Preço do Açúcar (US$/ton)", xlab="Ano", ylab="Preço (US$/ton)")
+abline(h=medias["PrecoAcucar"], lty=2)
+legend("topright", lty=c(2), legend=c("Média"))
+par(mfrow=c(2,2))
+```  
+
+Nos painel de gráficos acima são apresentadas as séries temporais com a evolução das variáveis analisadas ao longo do período de 1974 a 2010. Nesse painel deve-se destacar os seguintes fatos:  
+
+- Tendência crescente do volume de açúcar exportado ao longo do período analisado.  
+- Os altos níveis da taxa Selic entre a segunda metade dos anos 1980 e a primeira metade dos anos 1990.  
+- As grande volatilidade (variabilidade) do preço do açúcar, no mercado internacional, ao longo do período.  
+
+A seguir, são apresentadas as relações lineares individuais de cada variável independente com a variável dependente **VolExpAcucar_ton**.  
+
+# 3 - Relações Lineares Entre as Variáveis:  
+A seguir, é apresentada uma tabela com as correlações entre cada uma das variáveis independentes com a variável dependente VolExpAcucar_ton:  
+
+```{r}
+arrayCorrel <- as.numeric()
+arrayCorrel[1] <- cor(dados$VolExpAcucar_ton, dados$AreaColhidaCana)
+arrayCorrel[2] <- cor(dados$VolExpAcucar_ton, dados$ProdCana_ton)
+arrayCorrel[3] <- cor(dados$VolExpAcucar_ton, dados$TaxaSELIC)
+arrayCorrel[4] <- cor(dados$VolExpAcucar_ton, dados$PrecoAcucar)
+```  
+
+Variável | $\rho_{VolExpAcucar_ton, Variável}$
+------------- | -------------
+AreaColhidaCana | `r arrayCorrel[1]`  
+ProdCana_ton | `r arrayCorrel[2]`  
+TaxaSELIC  | `r arrayCorrel[3]`  
+PrecoAcucar | `r arrayCorrel[4]`  
+
+Na tabela acima, pode-se constatar correlações fortíssimas entre o volume exportado de açúcar (VolExpAcucar_ton) e as variáveis referentes à produção de cana: AreaColhidaCana e ProdCana_ton.  
+
+A seguir é apresentado um painel com gráficos de dispersão, com os valores de cada uma das variáveis independentes no eixo-X e os valores da variável dependente no eixo Y.  
+
+```{r}
+# Posição, no eixo Y, onde estará o texto nos gráficos:
+posY <- max(dados$VolExpAcucar_ton)*0.9
+
+# Posição, no eixo X, dos textos nos gráficos:
+posX <- as.numeric()
+posX[1] <- min(dados$AreaColhidaCana)
+posX[2] <- min(dados$ProdCana_ton)
+posX[3] <- min(dados$TaxaSELIC)
+posX[4] <- min(dados$PrecoAcucar)
+
+
+# --> gerar os textos a serem inseridos no gráfico
+arrTextos <- as.character()
+# Regressão 1:
+reg <- lm(dados$VolExpAcucar_ton~dados$AreaColhidaCana)
+arrTextos[1] <- paste("VolExpAcucar", "=", round(reg$coefficients[1], digits=2), "+", round(reg$coefficients[2], digits=2), "* AreaColhidaCana")
+
+# Regressão 2:
+reg <- lm(dados$VolExpAcucar_ton~dados$ProdCana_ton)
+arrTextos[2] <- paste("VolExpAcucar", "=", round(reg$coefficients[1], digits=2), "+", round(reg$coefficients[2], digits=2), "* ProdCana_ton")
+
+# Regressão 3:
+reg <- lm(dados$VolExpAcucar_ton~dados$TaxaSELIC)
+arrTextos[3] <- paste("VolExpAcucar", "=", round(reg$coefficients[1], digits=2), "+", round(reg$coefficients[2], digits=2), "* TaxaSELIC")
+
+# Regressão 4:
+reg <- lm(dados$VolExpAcucar_ton~dados$PrecoAcucar)
+arrTextos[4] <- paste("VolExpAcucar", "=", round(reg$coefficients[1], digits=2), "+", round(reg$coefficients[2], digits=2), "* PrecoAcucar")
+
+
+#  --> Plotar os gráficos
+par(mfrow=c(2,2))
+# Gráfico 1:
+plot(x=dados$AreaColhidaCana, y=dados$VolExpAcucar_ton, type="p", pch=15,
+     main="VolExpAcucar_ton ~ AreaColhidaCana", 
+     xlab="Área Colhida (Ha)", ylab="Vol. Exp. (ton)")
+abline(lm(dados$VolExpAcucar_ton~dados$AreaColhidaCana))
+text(posX[1], posY, arrTextos[1], pos=4, cex=0.5)
+
+# Gráfico 2:
+plot(x=dados$ProdCana_ton, y=dados$VolExpAcucar_ton, type="p", pch=16,
+     main="VolExpAcucar_ton ~ ProdCana_ton", 
+     xlab="Produção cana (ton)", ylab="Vol. Exp. (ton)")
+abline(lm(dados$VolExpAcucar_ton~dados$ProdCana_ton))
+text(posX[2], posY, arrTextos[2], pos=4, cex=0.5)
+
+# Gráfico 3:
+plot(x=dados$TaxaSELIC, y=dados$VolExpAcucar_ton, type="p", pch=17,
+     main="VolExpAcucar_ton ~ TaxaSELIC", 
+     xlab="Taxa Selic (% a.a.)", ylab="Vol. Exp. (ton)")
+abline(lm(dados$VolExpAcucar_ton~dados$TaxaSELIC))
+text(posX[3], posY, arrTextos[3], pos=4, cex=0.5)
+
+# Gráfico 4:
+plot(x=dados$PrecoAcucar, y=dados$VolExpAcucar_ton, type="p", pch=18,
+     main="VolExpAcucar_ton ~ PrecoAcucar", 
+     xlab="Preço Açúcar (US$/ton)", ylab="Vol. Exp. (ton)")
+abline(lm(dados$VolExpAcucar_ton~dados$PrecoAcucar))
+text(posX[4], posY, arrTextos[4], pos=4, cex=0.5)
+
+par(mfrow=c(1,1))
+```  
+
+No painel acima, pode-se constatar que o volume de açúcar exportado no ano possui uma relação positiva com a área colhida de cana de açúcar no ano e com a produção de cana no ano. O motivo é bastante óbvio, uma vez que para poder exportar açúcar, é necessário produzir a sua matéria prima, a cana de açúcar.   
+  
+Em relação à taxa Selic, esta possui uma relação negativa com o volume de açúcar exportado, uma vez que incrementos na taxa básica de juros da economia aumenta o custo de oportunidade do produtor, fazendo este preferir investir o seu dinheiro em títulos públicos do que na sua produção. Isto é, uma alta nas taxas de juros da economia fazem com que:  
+
+- Os produtores de cana de açúcar prefiram investir o seu dinheiro em ativos financeiros, uma vez que é possível obter maiores lucros com investimentos financeiros do que com a venda da cana plantada.  
+- Os produtores de açúcar produzam menos açúcar, tanto por causa da diminuição na oferta da matéria prima, quanto por causa da possibilidade de obtenção de maiores retornos em investimentos financeiros.  
+  
+No caso do preço médio do açúcar no mercado internacional, o segundo gráfico da parte inferior do painel acima sugere que o preço do açúcar no mercado internacional possui de pouca a nenhuma relação linear com o volume de açúcar exportado no ano. Uma possível explicação para essa baixa relação é que o mercado de açúcar, como um todo, pode ser definido em termos econômicos como um mercado de **"concorrência perfeita"** e, consequentemente, os produtores de açúcar são tomadores de preço. Se esse for realmente o caso, pode-se afirmar que os preços do açúcar no mercado internacional não irão influenciar o volume de açúcar exportado no país.  
+Uma possível  segunda explicação, é que os produtores de açúcar também podem vender antecipadamente a sua produção por meio de instrumentos financeiros de *hedge*. Nesse caso, o produtor poderia vender antecipadamente a sua produção e contrair uma obrigação de venda por um determinado preço, o comprador dessas opções receberia uma opção de compra do açúcar pelo mesmo preço e, no caso do preço do açúcar ser maior do que o preço dessas opções, ele terá o direito de comprar o açúcar pelo preço das opções.  
+  
+# 4 - Seleção das Variáveis Independentes do modelo:  
+Um pressuposto importante do modelo de regressão linear múltipla é a ausência de multicolinearidade, isto é, não pode haver correlação entre as variáveis independentes do modelo de regressão. A seguir é apresentada uma matriz de correlação entre as variáveis independentes apresentadas acima:  
+
+```{r}
+dados2 <- data.frame(dados$AreaColhidaCana, dados$ProdCana_ton, dados$TaxaSELIC, dados$PrecoAcucar)
+
+names(dados2) <- c("AreaColhidaCana", "ProdCana_ton", "TaxaSELIC", "PrecoAcucar")
+
+cor(dados2)
+```    
+  
+A matriz de correlações acima aponta que seria imprudente a inclusão simultânea das variáveis **AreaColhidaCana** e **ProdCana_ton** no modelo de regressão uma vez que a correlação entre as duas variáveis é quase que perfeita, **`r round(cor(dados2$AreaColhidaCana, dados2$ProdCana_ton), digits=3)`**.  
+
+Para identificar qual das duas será incluida no modelo, deve-se realizar o teste VIF (Variance InFlator) para identificar qual das duas "infla" mais a variância dos resíduos do modelo e, então, retirar essa variável do modelo.  
+
+```{r}
+vif(dados2)
+```  
+
+Com os resultados apresentados acima, optou-se por **retirar do modelo a variável "ProdCana_ton"** por apresentar o maior VIF.  
+
+# 5 - Primeiro Modelo de Regressão:  
+Após a retirada de uma variável independente do modelo que estava fortemente correlacionada com uma outra variável independente, será executado o primeiro modelo de regressão:  
+$$VolExpAcucar_ton = \beta_0 + \beta_1 AreaColhidaCana_t + \beta_2 TaxaSELIC_t + \beta_3 PrecoAcucar_t + \epsilon_t$$  
+A seguir, os resultados para o modelo de regressão estimado pela técnica de Mínimos Quadrados Ordinários (MQO):  
+
+```{r}
+modReg1 <- lm(VolExpAcucar_ton~AreaColhidaCana+TaxaSELIC+PrecoAcucar, data=dados)
+summary(modReg1)
+```  
+  
+O output acima sugere que as variáveis "AreaColhidaCana" e "TaxaSELIC" contribuem para explicar o volume de açúcar exportado pelo país, enquanto que a variável "PrecoAcucar", que representa o preço médio do açúcar exportado para o mercado internacional, não contribui para explicar o volume de açúcar exportado.  
+Dado os resultados acima, a próxima seção irá reestimar o modelo de regressão, pelo método de MQO, utilizando apenas as variáveis independentes que foram significativas nesse primeiro modelo de regressão.  
+
+# 6 - Segundo Modelo de regressão
+Estimando novamente o modelo de regressão por MQO, **utilizando como variáveis independentes apenas as variáveis "AreaColhidaCana" e "TaxaSELIC"**, foram gerados os seguintes resultados:  
+```{r}
+modReg2 <- lm(VolExpAcucar_ton~AreaColhidaCana+TaxaSELIC, data=dados)
+summary(modReg2)
+```  
+
+Os resultados acima corroboram com os resultados previstos na seção 3 (3 - Relações Lineares Entre as variáveis) acima e, portanto, o modelo de regressão final é dado por:  
+$$VolExpAcucar_ton = \beta_0 + \beta_1 AreaColhidaCana_t + \beta_2 TaxaSELIC_t + \epsilon_t$$  
+  
+# 7 - Verificação dos Pressupostos Acerca dos resíduos:  
+Com o modelo de regresssão final em mãos, essa seção tem o intuito de verificar se os três pressupostos acerca dos resíduos são atendidos. Os três pressupostos a serem testados são:  
+
+- 1- Os resíduos do Modelo possuem distribuição normal  
+- 2- Homocedasticidade dos resíduos, isto é, a variância dos resíduos é homogênea.  
+- 3- Os resíduos são independentes, isto é, não há correlação serial entre os resíduos da regressão.  
+
+## 7.1 - Normalidade dos resíduos:  
+A seguir é apresentado o resultado do teste de normalidade de Shapiro-Wilk para os resíduos do modelo de regressão. A hipótese nula e alternativa a serem testadas a seguir são:  
+$$H_0: Resíduos \ são \ normalmente \ distribuídos$$
+$$H_1: Resíduos \ não \ são \ normalmente \ distribuídos$$
+```{r}
+# Normalidade dos resíduos
+shapiro.test(modReg2$residuals)
+```  
+
+O resultado acima indica que, a um nível de significância de 5%, não se pode rejeitar a hipótese nula de que os erros são normalmente distribuídos e, portanto, a regressão atende ao pressuposto de normalidade dos resíduos.  
+
+## 7.2 - Homogeneidade de Variâncias dos Resíduos (Homocedasticidade dos Resíduos)  
+A seguir é apresentado os resultados do teste de homogeneidade das variâncias dos resíduos da regressão. Nesse teste, os resíduos são divididos em dois grupos e, então, é testada a seguinte hipótese:  
+$$H_0: \sigma_1 = \sigma_2$$
+$$H_1: \sigma_1 \neq \sigma_2$$
+```{r}
+res <- sort(modReg2$residuals, decreasing=FALSE)
+varParte1 <- res[1:18]
+varParte2 <- res[19:37]
+var.test(varParte1, varParte2)
+```  
+O resultado do teste F, acima, mostra que também não se deve rejeitar, a um nível de 5% de confiança, a hipótese nula de que a variância dos resíduos dos dois grupos de resíduos sejam estatisticamente iguais e, portanto, o pressuposto de homogeneidade dos resíduos também é atendido.  
+
+## 7.3 - Teste de Independência dos Resíduos:  
+A seguir é apresentado os resultados do teste de Durbin-Watson acerca da independência dos resíduos. A hipótese a ser testada aqui será:  
+$$H_0: \rho_{i,j} = 0$$
+$$H_1: \rho_{i,j} \neq 0$$
+```{r}
+dwtest(modReg2)
+```  
+
+O resultado acima indica que deve-se rejeitar a hipótese nula de independência dos resíduos da regressão e, portanto, o modelo de regressão não atende ao pressuposto de independência dos resíduos e deve-se fazer alguma correção para que o modelo seja válido.  
+
+# 8 - Estimando o Modelo pelo Método dos Mínimos Quadrados Generalizados:  
+Uma vez que o pressuposto de independência dos resíduos não foi atendido, deve-se **utilizar um modelo de regressão com estimativa de erros autoregressivos de primeira ordem** (AR1). Isto é, deve-se estimar a regressão pelo método de Mínimos Quadrados Generalizados (MQG).  A seguir são apresentados os resultados da estimação do modelo de regressão pelo método de MQG, e as próximas duas subseções irão verificar os pressupostos de normalidade dos resíduos e homocedasticidade dos resíduos.  
+```{r}
+modRegressao <-gls(VolExpAcucar_ton~AreaColhidaCana+TaxaSELIC, data=dados, correlation=corAR1(form=~1|Ano))
+summary(modRegressao)
+```  
+
+Os resultados acima confirmam os resultados encontrados na estimação por MQO e indicam que existe uma relação positiva entre a área colhida de cana de açúcar e o volume exportado de açúcar e uma relação negativa entre o volume de açúcar exportado e a taxa Selic.  
+
+## 8.1 - Pressuposto de Normalidade dos resíduos  
+```{r}
+shapiro.test(modRegressao$residuals)
+```  
+O resultado acima indica que o pressuposto de que os resíduos são normalmente distribuídos continua sendo atendido.  
+
+## 8.2 - Homogeneidade das Variâncias dos resíduos:  
+```{r}
+res <- sort(modRegressao$residuals, decreasing=FALSE)
+varParte1 <- res[1:18]
+varParte2 <- res[19:37]
+var.test(varParte1, varParte2)
+```  
+Os resultados acima indicam que o pressuposto de homocedasticidade das variâncias dos resíduos continua sendo atendido.  
+
+# 9 - Conclusão:  
+Através desse trabalho, buscou-se identificar os principais fatores capazes de influenciar o volume (em toneladas) de açúcar exportado pelo Brasil. Nas análises realizadas foi identificado que os principais fatores que contribuem com o volume exportado de açúcar foram a produção de cana de açúcar e a taxa Selic.  
+  
+O fator produção de cana de açúcar possui uma relação positiva com o volume de açúcar exportado e se refere a oferta de açúcar, isto é, quanto maior for a quantidade de cana plantada, maior será a oferta de açúcar e, consequentemente, maior será a quantidade de açúcar exportado.  
+  
+O fator taxa Selic representa o tradeoff entre investir em ativos financeiros e na produção. Desse modo, a relação entre taxa Selic e volume de açúcar exportado é negativa, visto que taxas de juros altas tornam os investimentos financeiros mais atraentes que, por sua vez, aumentam os custos dos empréstimos na economia. Esses, consequentemente, fazem com que os produtores decidam plantar menos cana e, por fim, diminui a oferta de açúcar na economia.  

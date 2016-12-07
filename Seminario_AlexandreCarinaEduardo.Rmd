@@ -1,0 +1,239 @@
+---
+title: "Identificação dos Fatores Relacionados à Exportação de Açúcar no Brasil"
+author: "Alexandre, Carina e Eduardo"
+date: "7 de dezembro de 2016"
+output:
+  revealjs::revealjs_presentation:
+    theme: sky
+    highlight: pygments
+    center: false
+    
+    reveal_options:
+      slideNumber: true
+      previewLinks: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Escolher a codificação "UTF-8"]
+knitr::opts_chunk$set(echo = FALSE)
+options(digits=2)
+
+# Diretório de trabalho:
+setwd("C:/Users/Eduardo/Desktop/Mestrado_UFU/Sem2_Disc2_MetodosQuant2/Seminario/Apresentacao_20161207/")
+
+# Bibliotecas utilizadas:
+library(car)
+library(nlme)
+library(lmtest)
+library(faraway)
+library(shiny)
+
+dados <- read.csv2(file="dadosSeminario_FINAL.csv", stringsAsFactors = FALSE)
+dados$AreaColhidaCana <- as.numeric(dados$AreaColhidaCana)
+dados$ProdCana_ton <- as.numeric(dados$ProdCana_ton)
+```
+  
+# Apresentação das Variáveis Analisadas:  
+
+## Dados e Período Analisado:  
+- **Fonte dos dados**: Site do Instituto de Pesquisa Econômicas Aplicadas (IPEA), www.ipeadata.gov.br  
+- **Período analisado**: Dados anuais de 1974 a 2010  
+- **Séries de Dados Extraídas**:  
+        - Volume de açúcar exportado (em toneladas)  
+        - Valor das exportações de açúcar (em milhares de US\$)  
+        - Área colhida de cana de açúcar (em Hectares)  
+        - Produção de cana de açúcar (em toneladas)  
+        - Taxa Selic no ano (em % a.a.)  
+
+## Variável Dependente e Variáveis Independentes  
+ - **Variável Dependente**: Volume de açúcar exportado, em toneladas (VolExpAcucar_ton))  
+ - **Variáveis Independentes**:  
+        - Área Colhida de Cana de Açúcar (AreaColhidaCana)  
+        - Produção de cana, em toneladas (ProdCana_ton)  
+        - Taxa Selic ao ano (TaxaSELIC)  
+        - Preço do açúcar no mercado internacional (PrecoAcucar)  
+  
+## Estatísticas Descritivas  
+```{r}
+# Vetores com as médias e desvios padrões 
+medias <- sapply(dados, mean)
+desvPad <- sapply(dados, sd)
+
+# Nomear os elementos dos vetores criados acima
+names(medias) <- names(dados)
+names(desvPad) <- names(dados)
+
+# Vetor com os coeficientes de variação:
+coefVar <- desvPad/medias * 100
+```  
+
+Variável | Média $\bar{X}$| Desvio Padrão $\sigma$| Coeficiente de Variação $\left( \frac{\sigma}{\bar{X}} \times 100 \right)$
+------------- | ------------- | ------------- | -------------
+VolExpAcucar_ton | `r medias["VolExpAcucar_ton"]` | `r desvPad["VolExpAcucar_ton"]` | `r coefVar["VolExpAcucar_ton"]`%  
+AreaColhidaCana | `r medias["AreaColhidaCana"]` | `r desvPad["AreaColhidaCana"]` | `r coefVar["AreaColhidaCana"]`%  
+ProdCana_ton | `r medias["ProdCana_ton"]` | `r desvPad["ProdCana_ton"]` | `r coefVar["ProdCana_ton"]`%  
+TaxaSELIC | `r medias["TaxaSELIC"]` | `r desvPad["TaxaSELIC"]` | `r coefVar["TaxaSELIC"]`%  
+PrecoAcucar | `r medias["PrecoAcucar"]` | `r desvPad["PrecoAcucar"]` | `r coefVar["PrecoAcucar"]`%  
+
+
+
+
+## Comportamento das variáveis ao longo do período analisado:  
+```
+runApp("AppGrafST")
+```  
+ - Executar aplicativo com os gráficos com os comportamentos das variáveis ao longo do tempo.  
+
+
+## Relação Linear Individual Entre a Variável Dependente e as Variáveis Independentes 
+```
+runApp("AppGrafRelacaoLin")
+```  
+ - <small>Aplicativo plota no eixo X uma das variáveis independentes e no eixo Y a variável dependente, **VolExpAcucar_ton**.</small>  
+ - <small>A linha no gráfico se refere à reta de regressão</small>:  
+<small>$$VolExpAcucar\_ton = \beta_0 + \beta_1 X + \epsilon$$</small>  
+ - <small>Na margem superior do gráfico, é apresentada a correlaçaõ entre a variável independente selecionada e VolExpAcucar_ton.</small>  
+
+
+
+# Seleção das Variáveis Independentes do Modelo:  
+
+## Correlação entre as variáveis independentes:  
+```{r}
+dados2 <- data.frame(dados$AreaColhidaCana, dados$ProdCana_ton, dados$TaxaSELIC, dados$PrecoAcucar)
+
+names(dados2) <- c("AreaColhidaCana", "ProdCana_ton", "TaxaSELIC", "PrecoAcucar")
+
+cor(dados2)
+```  
+- Correlação muito alta entre **"ProdCana_ton"** e **"AreaColhidaCana"**  
+- A inclusão das duas irá acarretar em **problemas de multicolinearidade** no modelo de regressão.  
+
+
+## Variance Inflation Factor (VIF) para as variáveis independentes:    
+- VIF para um modelo linear que utiliza as 4 variáveis independentes apresentadas anteriormente:  
+```{r}
+vif(dados2)
+```  
+- Optou-se por **retirar "ProdCana_ton"**, uma vez que esta variável é a que mais "infla" a variância do nosso modelo linear.  
+
+
+
+
+# Primeiro Modelo de Regressão:  
+
+## Primeiro Modelo de Regressão: 
+ - <small> O primeiro modelo de regressão testado inclui as três variáveis independentes remanescentes </small>.  
+ - <small> Modelo de regressão a ser estimado: </small>  
+<small>$$VolExpAcucar\_ton_t = \beta_0 + \beta_1*AreaColhidaCana_t + \beta_2*TaxaSELIC_t + \beta_3*PrecoAcucar_t + \epsilon$$</small>  
+
+
+## Resultados da estimação do modelo por Mínimos Quadrados Ordinários (MQO):  
+```{r}
+modReg1 <- lm(VolExpAcucar_ton~AreaColhidaCana+TaxaSELIC+PrecoAcucar, data=dados)
+summary(modReg1)
+```  
+
+## Resultados da estimação do modelo por Mínimos Quadrados Ordinários (MQO):
+ - O coeficiente da variável **PrecoAcucar** não foi estatísticamente diferente de zero.  
+ - Os outros coeficientes da regressão foram estatísticamente diferentes de 0.  
+
+
+# Segundo Modelo de Regressão:  
+
+## Segundo Modelo de Regressão:  
+ - Retirando do modelo a variável **PrecoAcucar**, o novo modelo a ser estimado, pelo método MQO, será:  
+$$VolExpAcucar\_ton_t = \beta_0 + \beta_1*AreaColhidaCana_t + \beta_2*TaxaSELIC_t + \epsilon$$  
+
+## Resultados da estimação por MQO do segundo modelo:  
+```{r}
+modReg2 <- lm(VolExpAcucar_ton~AreaColhidaCana+TaxaSELIC, data=dados)
+summary(modReg2)
+```  
+
+## Resultados da estimação por MQO do segundo modelo:  
+- Os coeficientes angulares das duas variáveis remanescentes do modelo continuaram sendo estat[isticamente diferentes de 0.  
+- O coeficiente de determinação do modelo $\left( R^2 \right)$ foi de `r summary(modReg2)$adj.r.squared`, o que indica uma ajuste muito bom.  
+- Assim, esse modelo será o modelo adotado aqui.  
+- A próxima seção analisa a validade desse modelo no tocante às pressuposições acerca dos resíduos.  
+
+
+# Verificação dos Pressupostos Acerca dos resíduos:  
+
+## Pressupostos Testados:  
+- Para assegurar a validade do nosso modelo de regressão, são testados a seguir os três pessupostos acerca dos resíduos do nosso modelo de regressão:  
+        - 1- Os resíduos do Modelo possuem distribuição normal  
+        - 2- Homocedasticidade dos resíduos, isto é, a variância dos resíduos é homogênea.  
+        - 3- Os resíduos são independentes, isto é, não há correlação serial entre os resíduos da regressão.  
+
+
+## Teste de Normalidade Shapiro-Wilk para os Resíduos:  
+$$H_0: Resíduos \ são \ normalmente \ distribuídos$$
+$$H_1: Resíduos \ não \ são \ normalmente \ distribuídos$$
+```{r}
+# Normalidade dos resíduos
+shapiro.test(modReg2$residuals)
+```  
+- Não se deve rejeitar a $H_0$ de que os resíduos possuem distribuição normal!  
+
+
+
+## <small>Homogeneidade de Variâncias dos Resíduos (Homocedasticidade dos Resíduos) </small>  
+<small>$$H_0: \sigma_1 = \sigma_2$$</small>
+<small>$$H_1: \sigma_1 \neq \sigma_2$$</small>
+```{r}
+res <- sort(modReg2$residuals, decreasing=FALSE)
+varParte1 <- res[1:18]
+varParte2 <- res[19:37]
+var.test(varParte1, varParte2)
+```  
+ - </small> Não Rejeita a $H_0$ de que as variâncias dos dois grupos de resíduos sejam estatísticamente diferentes. </small>  
+ - </small>Portanto, o modelo atende ao pressuposto de Homocedasticidade! </small>  
+
+
+## <small> Teste de Durbin-Watson para a Independência dos Resíduos: </small>  
+<small>$$H_0: \rho_{i,j} = 0$$</small>
+<small>$$H_1: \rho_{i,j} \neq 0$$</small>
+```{r}
+dwtest(modReg2)
+```  
+- <small>O resultado acima mostra que o modelo de regressão violou o pressuposto de independência dos resíduos e, portanto, há a presença de **correlação serial** entre os resíduos do modelo de regressão. </small>  
+- <small>**Deve-se realizar ajustes para validar o modelo de regresão!** </small>  
+
+
+
+# Estimação do Modelo pelo Método dos Mínimos Quadrados Generalizados (MQG):  
+
+## Sobre o modelo a ser Utilizado:  
+- Para contornar o problema de correlação serial dos resíduos, deve-se utilizar um modelo de regressão com estimativa de erros autoregressivos de 1a Ordem.   
+- Isto é, estimar o modelo pela técnica de Mínimos Quadrados Generalizados (MQG)  
+- **Obrigado Janser!!**  
+
+## Sumário do Modelo por Mínimos Quadrados Generalizados  
+```{r, echo=FALSE}
+modRegressao <-gls(VolExpAcucar_ton~AreaColhidaCana+TaxaSELIC, data=dados, correlation=corAR1(form=~1|Ano))
+summary(modRegressao)
+```  
+  
+## Sumário do Modelo por Mínimos Quadrados Generalizados 
+ - Ambos os coeficientes da regressão foram estatísticamente diferentes de 0  
+ - Relação positiva entre o volume de açúcar exportado e a quantidade produzida de cana-de-açúcar.  
+ - Relação negativa entre o volume de açúcar exportado e variações na taxa básica de juros da econimia, a taxa Selic.  
+ - A seguir são Testados os pressupostos de **Normalidade** e **Homocedasticidade** dos resíduos da regressão.  
+
+## Teste de Normalidade de Shapiro-Wilk para os resíduos da regressão:
+```{r}
+shapiro.test(modRegressao$residuals)
+```  
+- O pressuposto de normalidade continua sendo atendido  
+
+## Teste de Homogeneidade das Variâncias dos Resíduos da Regressão:  
+```{r}
+res <- sort(modRegressao$residuals, decreasing=FALSE)
+varParte1 <- res[1:18]
+varParte2 <- res[19:37]
+var.test(varParte1, varParte2)
+```  
+- O pressuposto de homocedasticidade dos resíduos continuou sendo atendido!  
